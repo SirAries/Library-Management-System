@@ -1,0 +1,233 @@
+using System.ComponentModel.Design;
+using System.Runtime.CompilerServices;
+using System.IO;
+using System.Reflection;
+using Microsoft.VisualBasic.FileIO;
+using System.Linq;
+using System.Security.Cryptography.X509Certificates;
+using System.Diagnostics;
+using System.Runtime.InteropServices.Marshalling;
+using System.Reflection.PortableExecutable;
+using System.Runtime.InteropServices;
+using System.Collections.Generic;
+
+public class Program
+{
+
+    public class Book
+    {
+        public string isbn { get; set; }
+        public string title { get; set; }
+        public string author { get; set; }
+        public int publishedYear { get; set; }
+    }
+
+    public static string filePath = "C:\\LMS\\library.txt";
+
+    public static string fileContents = File.ReadAllText(filePath);
+
+    public static List<Book> bookList = new List<Book>();
+
+   
+
+    static void Main(string[] args)
+    {
+        bool menu = true;
+
+        Library.LoadBooks();//load the books from the text file to the List
+
+        while (menu)
+        {
+
+            Console.WriteLine("\nMenu\n" +
+            "1) Add book\n" +
+            "2) Remove book\n" +
+            "3) List book\n" +
+            "9) Close Application\n");
+
+            int option = int.Parse(Console.ReadLine()); //must pass int when menu ask for menu selection or the program will crash here!
+
+            // read contents from the text file and place on the list 
+            if (option == 1)
+            {
+                do
+                {
+                    
+                    string UserAction = "c";
+                    while (UserAction == "c")
+                    {
+
+                        Console.WriteLine("Hey, User Has Selected To Add A Book!");
+                        Console.WriteLine("Press Enter To Continue");
+                        Console.ReadLine();
+
+                        Book bookToBeAdded = new Book();
+                        Console.WriteLine("Enter the title");
+                        bookToBeAdded.title = Console.ReadLine();
+                        Console.WriteLine("Enter the author");
+                        bookToBeAdded.author = Console.ReadLine();
+                        Console.WriteLine("Enter the ISBN");
+                        bookToBeAdded.isbn = Console.ReadLine();
+                        Console.WriteLine("Enter the Published Year");
+                        bookToBeAdded.publishedYear = Convert.ToInt32(Console.ReadLine());
+
+
+                        Library.AddBook(bookToBeAdded);
+                        Console.WriteLine("Press C To Continue Adding Books Or Press Enter To Go Back To Selection Menu");
+                        UserAction = Console.ReadLine();
+                    }
+                }
+                while (false);
+            }
+
+            else if (option == 2)
+            {
+                Console.WriteLine("Enter the Book ISBN Number to remove: ");
+                string removeBookISBN = Console.ReadLine();
+                bool BookRemove = false;
+                BookRemove = Library.RemoveBook(removeBookISBN);
+
+                if  (BookRemove == true)
+                {
+                    Console.WriteLine("Removed book Successfully");
+                    Console.WriteLine("Press Enter To Open Selection Menu");
+                    Console.ReadLine();
+                }
+                else 
+                {
+                    Console.WriteLine("Sorry! The Book With ISBN {0} was not found.", removeBookISBN);
+                    Console.WriteLine("Press Enter To Continue To Selection Menu");
+                    Console.ReadLine();
+                }
+            }
+            else if (option == 3)
+            {
+                Console.WriteLine("Hey, User Has Selected To Get List Of All Books");                
+                Library.GetList(bookList);               
+            }
+            else if (option == 9)
+            {
+                Library.SaveBooks(bookList, filePath);
+                Console.WriteLine("Closing Application");                
+                Environment.Exit(0);
+            }
+
+        }
+    }
+    public static class Library
+    {
+        public static void AddBook(Book book)
+        {
+            bookList.Add(book);
+            Console.Write("Book Succesfully Added");
+            Console.WriteLine("\n");
+            Library.GetList(bookList);
+        }
+
+        public static bool RemoveBook(string isbn)
+        {
+            bool ReturnValue = false;
+
+            //trying to find book with specified ISBN 
+           for(int i = 0; i <bookList.Count; i++)
+            {
+                if (bookList[i].isbn.Trim() == isbn.Trim())
+                {
+                    bookList.Remove(bookList[i]);
+                    ReturnValue = true;
+                    break;
+                } 
+            }
+           return ReturnValue;  
+
+           //no longer need to include the StreamWriter to RemoveBook b/c were not acutally writing from the file using this method. (save book would hold StreamWriter Insead) 
+        }
+
+        public static void GetList(List<Book> books)
+        {
+            if (books == null || books.Count == 0)
+            {
+                Console.WriteLine("No books were available");
+                return;
+            }
+            Console.WriteLine("Title | Author | International Standard Book Number | Published Year");
+
+            ////if (str.Length < 4) //we have 4 expected feilds (checks if line in list has expected number of fields we require) 
+            //{
+            //    //Console.WriteLine("Invalid book data format.");
+            //   // continue; //this should skip to the next line if the written format is invalid 
+            //}
+
+            foreach (var book in books)
+            {
+                Console.WriteLine($"{book.title},{book.author},{book.isbn},{book.publishedYear}");
+                Console.WriteLine("*************************************");
+            }
+        }
+
+        public static void LoadBooks()
+        {
+            string[] stringOfBooks = {};
+            try
+            {
+                if (File.Exists(Program.filePath))
+                {
+                    stringOfBooks = File.ReadAllLines(Program.filePath);
+                }
+
+                if (string.IsNullOrWhiteSpace(fileContents))// check to see if there is any content in the text file 
+                {
+                    Console.WriteLine("The Book List Is Empty");
+                    return;
+                }
+
+            }
+            catch (Exception e) 
+            {
+                Console.WriteLine(e.InnerException.Message);
+                Console.WriteLine("Because File Doesn't Exist We Can't Allow You To Access The Menu, Sorry Please Try Again With Expected File");
+                Environment.Exit(0);
+                //return;
+            }
+
+            foreach (var line in stringOfBooks) //iterates through each line of book data
+            {
+                var str = line.Split(','); //splits the lines into an array of strings based on the commas
+                var book = new Book //creating a new book object and provide it properties 
+                {
+                    title = str[0],
+                    author = str[1],
+                    isbn = str[2],
+                    publishedYear = int.TryParse(str[3], out var year) ? year : 0 //parsing publishedYear because its a int
+                };
+
+                bookList.Add(book); //adds the new book to the list
+            }
+        }
+
+
+        public static void SaveBooks(List<Book> books, string filePath)
+        {
+            using (var writer = new StreamWriter("C:\\LMS\\library.txt"))
+            {
+                //writer.WriteLine("Title, Author, International Standard Book Number, Published Year");
+                foreach (var book in books)
+                {
+                    writer.WriteLine($"{book.title},{book.author},{book.isbn},{book.publishedYear}");
+                }
+            }
+
+            if (books == null)
+            {
+                Console.WriteLine("No Books to save.");
+
+            }
+            if (books != null)
+            {
+                Console.WriteLine("Entries Have Been Saved");
+            }
+
+        }
+    }
+    
+}
